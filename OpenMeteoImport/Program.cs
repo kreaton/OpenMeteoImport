@@ -6,21 +6,21 @@ using Microsoft.Extensions.Configuration;
 using MySqlConnector;
 
 // ---- Config ---------------------------------------------------------------
-// Sources, later ones win: appsettings.json, appsettings.{OPENMETEO_ENVIRONMENT}.json,
-// environment variables prefixed OPENMETEO_ (e.g. OPENMETEO_Location__Latitude),
+// Sources, later ones win: appsettings.json, appsettings.debug.json (Debug builds only),
 // then command-line args (e.g. --Location:Name=Aarhus --Extract:StartDate=2023-01-01).
-var environment = Environment.GetEnvironmentVariable("OPENMETEO_ENVIRONMENT");
-var config = new ConfigurationBuilder()
+var configBuilder = new ConfigurationBuilder()
     .SetBasePath(AppContext.BaseDirectory)
-    .AddJsonFile("appsettings.json", optional: false)
-    .AddJsonFile($"appsettings.{environment}.json", optional: true)
-    .AddEnvironmentVariables("OPENMETEO_")
+    .AddJsonFile("appsettings.json", optional: false);
+#if DEBUG
+configBuilder.AddJsonFile("appsettings.debug.json", optional: true);
+#endif
+var config = configBuilder
     .AddCommandLine(args)
     .Build();
 
 var settings = config.Get<ImportSettings>() ?? new ImportSettings();
 var location = settings.Location;
-var connStr = config.GetConnectionString("Weather");
+var connStr = BuildConnectionString(config.GetSection("MySqlConnection"));
 
 if (string.IsNullOrWhiteSpace(location.Name))
     return Fail("Location:Name must be set.");
@@ -102,15 +102,24 @@ if (!string.IsNullOrWhiteSpace(settings.Output.CsvPath))
 }
 
 // ---- MariaDB / MySQL -----------------------------------------------------
-if (string.IsNullOrWhiteSpace(connStr))
+if (connStr is null)
 {
-    Console.WriteLine("ConnectionStrings:Weather not set - skipping database import.");
+    Console.WriteLine("MySqlConnection:Server not set - skipping database import.");
     return 0;
 }
 
 var table = settings.Output.TableName;
 await using var conn = new MySqlConnection(connStr);
-await conn.OpenAsync();
+try
+{
+    await conn.OpenAsync();
+}
+catch (MySqlException ex)
+{
+    Console.Error.WriteLine($"Could not connect to the database: {ex.Message}");
+    Console.Error.WriteLine("Check the MySqlConnection section (the password belongs in appsettings.debug.json, used by Debug builds only).");
+    return 1;
+}
 
 await using (var create = new MySqlCommand($"""
     CREATE TABLE IF NOT EXISTS `{table}` (
@@ -189,6 +198,23 @@ static string FormatNullableDouble(double? v) => v?.ToString("0.##", CultureInfo
 
 static string CsvField(string s) =>
     s.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
+
+// Builds a connection string from the "MySqlConnection" section: each key is a MySqlConnector
+// connection-string keyword (Server, Port, Database, User ID, Password, ...). The builder takes
+// care of quoting, so passwords containing ';' or '=' are safe. Returns null when Server is empty.
+static string? BuildConnectionString(IConfigurationSection section)
+{
+    if (string.IsNullOrWhiteSpace(section["Server"]))
+        return null;
+
+    var builder = new MySqlConnectionStringBuilder();
+    foreach (var setting in section.GetChildren())
+    {
+        if (setting.Value is not null)
+            builder[setting.Key] = setting.Value;
+    }
+    return builder.ConnectionString;
+}
 
 static int Fail(string message)
 {

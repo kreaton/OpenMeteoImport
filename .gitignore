@@ -482,7 +482,7 @@ $RECYCLE.BIN/
 *.swp
 
 # Local config overlays (may contain secrets)
-appsettings.Local.json
+appsettings.debug.json
 
 # Generated output
 *.csv

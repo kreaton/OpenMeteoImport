@@ -1,6 +1,6 @@
 -- OpenMeteoImport weather schema for MariaDB / MySQL
 -- Assumes the default Output:TableName (weather_hourly); adjust if you changed it.
--- Run against an existing database:  mysql -u root -p weather < schema.sql
+-- Run against an existing database:  mysql -u root -p weather < schema_v2.sql
 -- mysql -u root -p weather < schema.sql
 
 SET NAMES utf8mb4;
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS weather_hourly (
 -- ---------------------------------------------------------------------------
 -- Cloud cover (%)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS cloudcover (
+CREATE TABLE IF NOT EXISTS weather_code_cloudcover (
     id      TINYINT UNSIGNED NOT NULL PRIMARY KEY,
     min_pct TINYINT UNSIGNED NOT NULL,  -- inclusive
     max_pct TINYINT UNSIGNED NOT NULL,  -- inclusive
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS cloudcover (
     UNIQUE KEY (min_pct, max_pct)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-INSERT INTO cloudcover (id, min_pct, max_pct, text_en, text_da) VALUES
+INSERT INTO weather_code_cloudcover (id, min_pct, max_pct, text_en, text_da) VALUES
 (1,   0,  10, 'Clear',         'Klar himmel'),
 (2,  11,  25, 'Mostly clear',  'Overvejende klart'),
 (3,  26,  50, 'Partly cloudy', 'Delvist skyet'),
@@ -47,7 +47,7 @@ ON DUPLICATE KEY UPDATE text_en = VALUES(text_en), text_da = VALUES(text_da);
 -- ---------------------------------------------------------------------------
 -- Wind speed (Beaufort, km/h)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS windspeed (
+CREATE TABLE IF NOT EXISTS weather_code_windspeed (
     beaufort TINYINT UNSIGNED NOT NULL PRIMARY KEY,
     min_kmh  DECIMAL(5,1) NOT NULL,  -- inclusive
     max_kmh  DECIMAL(5,1) NOT NULL,  -- exclusive
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS windspeed (
     text_da  VARCHAR(50) NOT NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-INSERT INTO windspeed (beaufort, min_kmh, max_kmh, text_en, text_da) VALUES
+INSERT INTO weather_code_windspeed (beaufort, min_kmh, max_kmh, text_en, text_da) VALUES
 (0,    0,    1, 'Calm',            'Stille'),
 (1,    1,    6, 'Light air',       'Næsten stille'),
 (2,    6,   12, 'Light breeze',    'Svag vind'),
@@ -74,7 +74,7 @@ ON DUPLICATE KEY UPDATE text_en = VALUES(text_en), text_da = VALUES(text_da);
 -- ---------------------------------------------------------------------------
 -- Wind direction (16 compass points, 22.5 degrees each)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS winddirection (
+CREATE TABLE IF NOT EXISTS weather_code_winddirection (
     id       TINYINT UNSIGNED NOT NULL PRIMARY KEY,  -- 0 = N, 1 = NNE, ... 15 = NNW
     abbr_en  VARCHAR(3)  NOT NULL,
     abbr_da  VARCHAR(3)  NOT NULL,
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS winddirection (
     text_da  VARCHAR(30) NOT NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-INSERT INTO winddirection (id, abbr_en, abbr_da, text_en, text_da) VALUES
+INSERT INTO weather_code_winddirection (id, abbr_en, abbr_da, text_en, text_da) VALUES
 ( 0, 'N',   'N',   'North',           'Nord'),
 ( 1, 'NNE', 'NNØ', 'North-northeast', 'Nord-nordøst'),
 ( 2, 'NE',  'NØ',  'Northeast',       'Nordøst'),
@@ -105,7 +105,7 @@ ON DUPLICATE KEY UPDATE abbr_en = VALUES(abbr_en), abbr_da = VALUES(abbr_da),
 -- ---------------------------------------------------------------------------
 -- Precipitation (mm per hour)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS precipitation (
+CREATE TABLE IF NOT EXISTS weather_code_precipitation (
     id      TINYINT UNSIGNED NOT NULL PRIMARY KEY,
     min_mm  DECIMAL(6,1) NOT NULL,  -- inclusive
     max_mm  DECIMAL(6,1) NOT NULL,  -- exclusive
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS precipitation (
     text_da VARCHAR(50) NOT NULL
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-INSERT INTO precipitation (id, min_mm, max_mm, text_en, text_da) VALUES
+INSERT INTO weather_code_precipitation (id, min_mm, max_mm, text_en, text_da) VALUES
 (1,  0.0,    0.1, 'None',                     'Ingen nedbør'),
 (2,  0.1,    2.5, 'Light precipitation',      'Let nedbør'),
 (3,  2.5,    7.6, 'Moderate precipitation',   'Moderat nedbør'),
@@ -123,9 +123,9 @@ ON DUPLICATE KEY UPDATE text_en = VALUES(text_en), text_da = VALUES(text_da);
 
 -- ---------------------------------------------------------------------------
 -- View: weather data with English and Danish descriptions
--- The direction join works by shifting the angle by 11.25° and dividing by 22.5°, so north (348.75° to -- 11.25°) maps to id 0 without a wrap-around row. Danish compass abbreviations use Ø (øst) and V (vest), -- which is why abbr_da is separate
+-- The direction join works by shifting the angle by 11.25° and dividing by 22.5°, so north (348.75° to 11.25°) maps to id 0 without a wrap-around row. Danish compass abbreviations use Ø (øst) and V (vest), which is why abbr_da is separate
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW weather_hourly_described AS
+CREATE OR REPLACE VIEW weather_view_hourly AS
 SELECT
     w.location,
     w.time,
@@ -154,11 +154,11 @@ SELECT
     wd.text_en AS wind_direction_en,
     wd.text_da AS wind_direction_da
 FROM weather_hourly w
-LEFT JOIN cloudcover cc
+LEFT JOIN weather_code_cloudcover cc
        ON ROUND(w.cloud_cover) BETWEEN cc.min_pct AND cc.max_pct
-LEFT JOIN precipitation p
+LEFT JOIN weather_code_precipitation p
        ON w.precipitation >= p.min_mm AND w.precipitation < p.max_mm
-LEFT JOIN windspeed ws
+LEFT JOIN weather_code_windspeed ws
        ON w.wind_speed_10m >= ws.min_kmh AND w.wind_speed_10m < ws.max_kmh
-LEFT JOIN winddirection wd
+LEFT JOIN weather_code_winddirection wd
        ON wd.id = FLOOR(MOD(w.wind_direction_10m + 11.25, 360) / 22.5);

@@ -25,8 +25,13 @@ All settings live in [`OpenMeteoImport/appsettings.json`](OpenMeteoImport/appset
 
 ```json
 {
-  "ConnectionStrings": {
-    "Weather": ""
+  "MySqlConnection": {
+    "Server": "127.0.0.1",
+    "Port": "3306",
+    "Database": "weather",
+    "User ID": "user",
+    "Password": "set-in-appsettings.debug.json",
+    "AllowLoadLocalInfile": true
   },
   "Location": {
     "Name": "Copenhagen",
@@ -47,7 +52,7 @@ All settings live in [`OpenMeteoImport/appsettings.json`](OpenMeteoImport/appset
 
 | Setting | Description |
 | --- | --- |
-| `ConnectionStrings:Weather` | MariaDB/MySQL connection string, e.g. `Server=localhost;Port=3306;Database=weather;User=root;Password=secret`. Leave empty to skip the database import. |
+| `MySqlConnection` | MariaDB/MySQL connection. Each key is a [MySqlConnector connection-string option](https://mysqlconnector.net/connection-options/) (`Server`, `Port`, `Database`, `User ID`, `Password`, ...), so more can be added. Leave `Server` empty to skip the database import. Keep the real password out of this file — see `appsettings.debug.json` below. |
 | `Location:Name` | Label stored with every row (part of the table's primary key, so several locations can share one table). |
 | `Location:Latitude` / `Location:Longitude` | Coordinates in decimal degrees. |
 | `Location:Timezone` | IANA time zone for the returned timestamps, e.g. `Europe/Copenhagen`, or `auto`. |
@@ -61,11 +66,19 @@ All settings live in [`OpenMeteoImport/appsettings.json`](OpenMeteoImport/appset
 Configuration is layered; later sources win:
 
 1. `appsettings.json` (next to the executable)
-2. `appsettings.{OPENMETEO_ENVIRONMENT}.json`, e.g. `appsettings.Local.json` when `OPENMETEO_ENVIRONMENT=Local`
-   (`appsettings.Local.json` is git-ignored — a good place for a connection string with a password)
-3. Environment variables prefixed `OPENMETEO_`, using `__` as separator, e.g.
-   `OPENMETEO_ConnectionStrings__Weather`, `OPENMETEO_Location__Latitude`
-4. Command-line arguments, e.g.
+2. `appsettings.debug.json` — **Debug builds only**. It is git-ignored and not copied to Release/publish output,
+   so it is the place for the database password. Create it next to `appsettings.json`; any other
+   `MySqlConnection` key can be overridden here too:
+
+   ```json
+   {
+     "MySqlConnection": {
+       "Password": "secret"
+     }
+   }
+   ```
+
+3. Command-line arguments, e.g.
 
 ```bash
 dotnet run --project OpenMeteoImport -- --Location:Name=Aarhus --Location:Latitude=56.1629 --Location:Longitude=10.2039 --Extract:StartDate=2023-01-01 --Extract:EndDate=2023-12-31
@@ -82,11 +95,11 @@ The tool creates the table if it does not exist:
 | `latitude`, `longitude` | `DOUBLE` |
 | `temperature_2m` (°C), `relative_humidity_2m` (%), `precipitation` (mm), `pressure_msl` (hPa), `wind_speed_10m` (km/h), `wind_direction_10m` (°), `cloud_cover` (%) | `DOUBLE NULL` |
 
-[`schema.sql`](schema.sql) creates the same table plus lookup tables (cloud cover, Beaufort wind speed, wind
+[`schema_v2.sql`](schema_v2.sql) creates the same table plus lookup tables (cloud cover, Beaufort wind speed, wind
 direction, precipitation intensity — English and Danish texts) and a `weather_hourly_described` view joining them:
 
 ```bash
-mysql -u root -p weather < schema.sql
+mysql -u root -p weather < schema_v2.sql
 ```
 
 Rows are upserted (`INSERT ... ON DUPLICATE KEY UPDATE`) in batches of 500 inside a single transaction, so re-running
