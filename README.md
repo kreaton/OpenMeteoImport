@@ -82,6 +82,13 @@ The tool creates the table if it does not exist:
 | `latitude`, `longitude` | `DOUBLE` |
 | `temperature_2m` (°C), `relative_humidity_2m` (%), `precipitation` (mm), `pressure_msl` (hPa), `wind_speed_10m` (km/h), `wind_direction_10m` (°), `cloud_cover` (%) | `DOUBLE NULL` |
 
+[`schema.sql`](schema.sql) creates the same table plus lookup tables (cloud cover, Beaufort wind speed, wind
+direction, precipitation intensity — English and Danish texts) and a `weather_hourly_described` view joining them:
+
+```bash
+mysql -u root -p weather < schema.sql
+```
+
 Rows are upserted (`INSERT ... ON DUPLICATE KEY UPDATE`) in batches of 500 inside a single transaction, so re-running
 the tool for an overlapping period simply updates existing rows.
 
