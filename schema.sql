@@ -1,6 +1,7 @@
 -- OpenMeteoImport weather schema for MariaDB / MySQL
 -- Assumes the default Output:TableName (weather_hourly); adjust if you changed it.
 -- Run against an existing database:  mysql -u root -p weather < schema.sql
+-- mysql -u root -p weather < schema.sql
 
 SET NAMES utf8mb4;
 
@@ -122,6 +123,7 @@ ON DUPLICATE KEY UPDATE text_en = VALUES(text_en), text_da = VALUES(text_da);
 
 -- ---------------------------------------------------------------------------
 -- View: weather data with English and Danish descriptions
+-- The direction join works by shifting the angle by 11.25° and dividing by 22.5°, so north (348.75° to -- 11.25°) maps to id 0 without a wrap-around row. Danish compass abbreviations use Ø (øst) and V (vest), -- which is why abbr_da is separate
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE VIEW weather_hourly_described AS
 SELECT

@@ -49,6 +49,7 @@ Console.WriteLine($"Period:   {startDate:yyyy-MM-dd} -> {endDate:yyyy-MM-dd}");
 using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
 var rows = new List<WeatherRow>();
 
+// The Open-Meteo archive API only allows one year per request, so we loop through the years.
 for (var from = startDate; from <= endDate;)
 {
     var to = new DateOnly(from.Year, 12, 31);
@@ -64,6 +65,7 @@ for (var from = startDate; from <= endDate;)
 
     for (var i = 0; i < times.GetArrayLength(); i++)
     {
+        // Helper to get a nullable double from the hourly JSON array.
         double? V(string name)
         {
             var el = hourly.GetProperty(name)[i];
@@ -92,8 +94,8 @@ if (!string.IsNullOrWhiteSpace(settings.Output.CsvPath))
         sb.AppendLine(string.Join(',',
             locationField,
             r.Time.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-            F(r.Temperature), F(r.Humidity), F(r.Precipitation),
-            F(r.Pressure), F(r.WindSpeed), F(r.WindDirection), F(r.CloudCover)));
+            FormatNullableDouble(r.Temperature), FormatNullableDouble(r.Humidity), FormatNullableDouble(r.Precipitation),
+            FormatNullableDouble(r.Pressure), FormatNullableDouble(r.WindSpeed), FormatNullableDouble(r.WindDirection), FormatNullableDouble(r.CloudCover)));
     }
     await File.WriteAllTextAsync(settings.Output.CsvPath, sb.ToString());
     Console.WriteLine($"Wrote {Path.GetFullPath(settings.Output.CsvPath)}");
@@ -183,7 +185,7 @@ Console.WriteLine($"Upserted {rows.Count} rows for '{location.Name}' into {table
 return 0;
 
 // ---- Helpers -------------------------------------------------------------
-static string F(double? v) => v?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
+static string FormatNullableDouble(double? v) => v?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
 
 static string CsvField(string s) =>
     s.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
@@ -192,41 +194,4 @@ static int Fail(string message)
 {
     Console.Error.WriteLine($"Configuration error: {message}");
     return 1;
-}
-
-record WeatherRow(
-    DateTime Time,
-    double? Temperature,
-    double? Humidity,
-    double? Precipitation,
-    double? Pressure,
-    double? WindSpeed,
-    double? WindDirection,
-    double? CloudCover);
-
-sealed class ImportSettings
-{
-    public LocationSettings Location { get; set; } = new();
-    public ExtractSettings Extract { get; set; } = new();
-    public OutputSettings Output { get; set; } = new();
-}
-
-sealed class LocationSettings
-{
-    public string Name { get; set; } = "";
-    public double Latitude { get; set; }
-    public double Longitude { get; set; }
-    public string Timezone { get; set; } = "auto";
-}
-
-sealed class ExtractSettings
-{
-    public DateOnly StartDate { get; set; } = new(2024, 1, 1);
-    public DateOnly? EndDate { get; set; }
-}
-
-sealed class OutputSettings
-{
-    public string? CsvPath { get; set; } = "weather.csv";
-    public string TableName { get; set; } = "weather_hourly";
 }

@@ -1,0 +1,9 @@
+record WeatherRow(
+    DateTime Time,
+    double? Temperature,
+    double? Humidity,
+    double? Precipitation,
+    double? Pressure,
+    double? WindSpeed,
+    double? WindDirection,
+    double? CloudCover);
