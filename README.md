@@ -1,5 +1,7 @@
 # OpenMeteoImport
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 A .NET 10 command-line tool that downloads **hourly historical weather** for any location from the free
 [Open-Meteo Archive API](https://open-meteo.com/en/docs/historical-weather-api), writes it to a CSV file and
 (optionally) upserts it into a **MariaDB / MySQL** table.
@@ -109,3 +111,9 @@ the tool for an overlapping period simply updates existing rows.
 
 - Data is requested one calendar year at a time to keep responses small.
 - Open-Meteo's free API is for non-commercial use; see their [terms](https://open-meteo.com/en/terms).
+
+## License & Authorship
+
+This project is distributed under the terms of the [MIT License](LICENSE).
+
+**AI authorship note:** Most of the source code in this repository was generated with AI coding agents (Claude Code), under my direction and review. Purely AI-generated material may not be eligible for copyright protection in some jurisdictions. To the extent any part of this project is protected by copyright, it is licensed under the MIT License, and the license's warranty and liability disclaimers apply to the project as a whole.
