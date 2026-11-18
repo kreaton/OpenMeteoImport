@@ -1,6 +1,9 @@
 # OpenMeteoImport
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/kreaton/OpenMeteoImport?style=flat&logo=github&color=yellow)](https://github.com/kreaton/OpenMeteoImport/stargazers)
+
+⭐ If OpenMeteoImport earns a place on your machine, [star it on GitHub](https://github.com/kreaton/OpenMeteoImport) — it's free, made by one developer, and stars are how other people find it.
 
 A .NET 10 command-line tool that downloads **hourly historical weather** for any location from the free
 [Open-Meteo Archive API](https://open-meteo.com/en/docs/historical-weather-api), writes it to a CSV file and
